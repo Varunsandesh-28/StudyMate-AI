@@ -1,0 +1,549 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudyMate AI | Offline Study Assistant</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #151d33;
+      --panel2: #0d1428;
+      --border: #303b59;
+      --text: #f3f5ff;
+      --muted: #aebce0;
+      --purple: #8957f5;
+      --green: #36c98f;
+      --red: #ff7272;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.6;
+    }
+
+    header {
+      padding: 28px 20px;
+      border-bottom: 1px solid var(--border);
+      background: #11182c;
+    }
+
+    .header-inner, main {
+      width: min(1100px, 94%);
+      margin: auto;
+    }
+
+    h1 { margin: 0; font-size: 30px; }
+    .subtitle { color: var(--muted); margin: 6px 0 0; }
+
+    .status {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    main { padding: 24px 0 60px; }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 26px;
+      margin-bottom: 24px;
+    }
+
+    h2 { margin: 0 0 8px; font-size: 25px; }
+    .description { color: var(--muted); margin-top: 0; }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 18px 0 8px;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid #56617d;
+      border-radius: 12px;
+      padding: 14px;
+      font: inherit;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--purple);
+    }
+
+    textarea { min-height: 140px; resize: vertical; }
+
+    button {
+      background: var(--purple);
+      color: white;
+      border: 0;
+      padding: 12px 18px;
+      margin: 10px 8px 0 0;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover { filter: brightness(1.12); }
+    button:disabled { opacity: .55; cursor: wait; }
+
+    .secondary { background: #293653; }
+    .mode-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .mode-buttons button.active {
+      outline: 2px solid #c2aaff;
+      background: #633bd0;
+    }
+
+    .message {
+      margin-top: 16px;
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .result {
+      display: none;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .result.visible { display: block; }
+
+    .quiz-question {
+      padding: 22px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .quiz-question h3 { margin: 0 0 14px; }
+
+    .option {
+      display: block;
+      text-align: left;
+      width: 100%;
+      background: var(--panel2);
+      border: 1px solid #3a4665;
+      margin: 9px 0;
+      padding: 13px 15px;
+      font-weight: normal;
+    }
+
+    .option.selected { border: 2px solid #b69aff; }
+    .option.correct { border: 2px solid var(--green); }
+    .option.wrong { border: 2px solid var(--red); }
+
+    .explanation {
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    .error { color: #ff9292; }
+    .success { color: #7ce8b9; }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      .panel { padding: 18px; }
+      h1 { font-size: 25px; }
+      h2 { font-size: 21px; }
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="header-inner">
+    <h1>📚 StudyMate AI</h1>
+    <p class="subtitle">Your personal offline study assistant</p>
+    <div class="status">● Local AI · Ollama · Gemma 3 1B</div>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>🧑‍🏫 AI Teacher</h2>
+    <p class="description">
+      Learn topics, revise concepts, and get help with your doubts.
+    </p>
+
+    <label for="teacherTopic">Topic</label>
+    <input id="teacherTopic" placeholder="Example: Python conditional statements">
+
+    <div class="mode-buttons">
+      <button type="button" class="active" data-mode="explain">Explain Topic</button>
+      <button type="button" data-mode="important">Important Questions</button>
+      <button type="button" data-mode="revision">Quick Revision</button>
+      <button type="button" data-mode="doubt">Ask a Doubt</button>
+    </div>
+
+    <div id="doubtArea" hidden>
+      <label for="teacherQuestion">Your question</label>
+      <textarea id="teacherQuestion" placeholder="Type your doubt here..."></textarea>
+    </div>
+
+    <button id="teacherButton" type="button">Ask StudyMate →</button>
+    <div id="teacherMessage" class="message" role="status"></div>
+    <div id="teacherResult" class="result"></div>
+  </section>
+
+  <section class="panel">
+    <h2>🧠 AI Quiz Generator</h2>
+    <p class="description">Generate five multiple-choice questions on any topic.</p>
+
+    <label for="quizTopic">Quiz topic</label>
+    <input id="quizTopic" placeholder="Example: Python conditional statements">
+
+    <button id="quizButton" type="button">Generate Quiz →</button>
+    <div id="quizMessage" class="message" role="status"></div>
+    <div id="quizContainer"></div>
+    <div id="quizScore" class="result"></div>
+  </section>
+
+  <section class="panel">
+    <h2>📝 Notes Summarizer</h2>
+    <p class="description">Paste your study notes to get a simple summary.</p>
+
+    <label for="notesInput">Your notes</label>
+    <textarea id="notesInput" placeholder="Paste your notes here..."></textarea>
+
+    <button id="summaryButton" type="button">Summarize Notes →</button>
+    <div id="summaryMessage" class="message" role="status"></div>
+    <div id="summaryResult" class="result"></div>
+  </section>
+</main>
+
+<footer>StudyMate AI · Powered by your local Ollama model</footer>
+
+<script>
+  let teacherMode = "explain";
+  let quizQuestions = [];
+  let selectedAnswers = {};
+  let quizSubmitted = false;
+
+  const $ = (id) => document.getElementById(id);
+
+  function showResult(element, text) {
+    element.textContent = text;
+    element.classList.add("visible");
+  }
+
+  function hideResult(element) {
+    element.textContent = "";
+    element.classList.remove("visible");
+  }
+
+  async function postJSON(url, body) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || data.error || "Request failed.");
+    }
+
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  // AI Teacher mode selection
+  document.querySelectorAll("[data-mode]").forEach(button => {
+    button.addEventListener("click", () => {
+      teacherMode = button.dataset.mode;
+
+      document.querySelectorAll("[data-mode]").forEach(item => {
+        item.classList.toggle("active", item === button);
+      });
+
+      $("doubtArea").hidden = teacherMode !== "doubt";
+    });
+  });
+
+  $("teacherButton").addEventListener("click", async () => {
+    const topic = $("teacherTopic").value.trim();
+    const question = $("teacherQuestion").value.trim();
+    const message = $("teacherMessage");
+    const result = $("teacherResult");
+    const button = $("teacherButton");
+
+    if (teacherMode === "doubt" && !question && !topic) {
+      message.textContent = "Please enter your question.";
+      message.className = "message error";
+      return;
+    }
+
+    if (teacherMode !== "doubt" && !topic) {
+      message.textContent = "Please enter a topic first.";
+      message.className = "message error";
+      return;
+    }
+
+    button.disabled = true;
+    message.className = "message";
+    message.textContent = "Thinking with your local AI...";
+    hideResult(result);
+
+    try {
+      const data = await postJSON("/ai-teacher", {
+        topic,
+        mode: teacherMode,
+        question
+      });
+
+      showResult(result, data.answer || data.response || "No answer returned.");
+      message.textContent = "✅ Answer generated.";
+      message.className = "message success";
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "message error";
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  // Quiz generation
+  $("quizButton").addEventListener("click", async () => {
+    const topic = $("quizTopic").value.trim();
+    const message = $("quizMessage");
+    const button = $("quizButton");
+
+    if (!topic) {
+      message.textContent = "Please enter a quiz topic.";
+      message.className = "message error";
+      return;
+    }
+
+    button.disabled = true;
+    message.className = "message";
+    message.textContent = "Generating quiz with local AI...";
+    $("quizContainer").replaceChildren();
+    hideResult($("quizScore"));
+
+    try {
+      const data = await postJSON("/generate-quiz", { topic });
+
+      if (!Array.isArray(data.questions) || data.questions.length === 0) {
+        throw new Error("No valid questions received. Please try again.");
+      }
+
+      quizQuestions = data.questions;
+      selectedAnswers = {};
+      quizSubmitted = false;
+
+      renderQuiz();
+      message.textContent = "✅ Quiz generated!";
+      message.className = "message success";
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "message error";
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  function renderQuiz() {
+    const container = $("quizContainer");
+    container.replaceChildren();
+
+    quizQuestions.forEach((item, index) => {
+      const questionBox = document.createElement("div");
+      questionBox.className = "quiz-question";
+
+      const heading = document.createElement("h3");
+      heading.textContent = `${index + 1}. ${item.question || "Question unavailable"}`;
+      questionBox.appendChild(heading);
+
+      // Backend returns "options". Support "choices" as a fallback.
+      const options = Array.isArray(item.options)
+        ? item.options
+        : Array.isArray(item.choices)
+          ? item.choices
+          : null;
+
+      if (!options || options.length === 0) {
+        const error = document.createElement("p");
+        error.className = "error";
+        error.textContent = "This question has no options. Please generate the quiz again.";
+        questionBox.appendChild(error);
+        container.appendChild(questionBox);
+        return;
+      }
+
+      options.forEach((option, optionIndex) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "option";
+        button.textContent = `${String.fromCharCode(65 + optionIndex)}. ${String(option)}`;
+
+        if (selectedAnswers[index] === optionIndex) {
+          button.classList.add("selected");
+        }
+
+        if (quizSubmitted) {
+          button.disabled = true;
+
+          const answerIndex = getAnswerIndex(item, options);
+
+          if (optionIndex === answerIndex) {
+            button.classList.add("correct");
+          } else if (selectedAnswers[index] === optionIndex) {
+            button.classList.add("wrong");
+          }
+        } else {
+          button.addEventListener("click", () => {
+            selectedAnswers[index] = optionIndex;
+            renderQuiz();
+          });
+        }
+
+        questionBox.appendChild(button);
+      });
+
+      if (quizSubmitted && item.explanation) {
+        const explanation = document.createElement("p");
+        explanation.className = "explanation";
+        explanation.textContent = `Explanation: ${item.explanation}`;
+        questionBox.appendChild(explanation);
+      }
+
+      container.appendChild(questionBox);
+    });
+
+    if (quizQuestions.length && !quizSubmitted) {
+      const submit = document.createElement("button");
+      submit.type = "button";
+      submit.textContent = "Submit Answers";
+      submit.addEventListener("click", submitQuiz);
+      container.appendChild(submit);
+    }
+
+    if (quizSubmitted) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "secondary";
+      retry.textContent = "Try Again";
+      retry.addEventListener("click", () => {
+        selectedAnswers = {};
+        quizSubmitted = false;
+        hideResult($("quizScore"));
+        renderQuiz();
+      });
+      container.appendChild(retry);
+    }
+  }
+
+  function getAnswerIndex(item, options) {
+    // Current backend returns a zero-based integer.
+    if (Number.isInteger(item.answer)) return item.answer;
+
+    // Also support letter answers such as "A" or "B".
+    if (typeof item.answer === "string") {
+      const letter = item.answer.trim().toUpperCase();
+      if (/^[A-D]$/.test(letter)) return letter.charCodeAt(0) - 65;
+
+      const match = options.findIndex(
+        option => String(option) === item.answer
+      );
+      if (match >= 0) return match;
+    }
+
+    return -1;
+  }
+
+  function submitQuiz() {
+    if (Object.keys(selectedAnswers).length < quizQuestions.length) {
+      $("quizMessage").textContent = "Please answer every question before submitting.";
+      $("quizMessage").className = "message error";
+      return;
+    }
+
+    let score = 0;
+
+    quizQuestions.forEach((item, index) => {
+      const options = Array.isArray(item.options) ? item.options : item.choices;
+      if (!Array.isArray(options)) return;
+
+      const correctIndex = getAnswerIndex(item, options);
+      if (selectedAnswers[index] === correctIndex) score++;
+    });
+
+    quizSubmitted = true;
+    renderQuiz();
+
+    showResult(
+      $("quizScore"),
+      `Your score: ${score} / ${quizQuestions.length}\n\n` +
+      (score === quizQuestions.length
+        ? "Excellent work! All answers are correct."
+        : "Review the correct answers and explanations, then try again.")
+    );
+
+    $("quizMessage").textContent = "Quiz submitted!";
+    $("quizMessage").className = "message success";
+  }
+
+  // Notes summarizer
+  $("summaryButton").addEventListener("click", async () => {
+    const notes = $("notesInput").value.trim();
+    const message = $("summaryMessage");
+    const result = $("summaryResult");
+    const button = $("summaryButton");
+
+    if (!notes) {
+      message.textContent = "Please paste your notes first.";
+      message.className = "message error";
+      return;
+    }
+
+    button.disabled = true;
+    message.textContent = "Summarizing with local AI...";
+    message.className = "message";
+    hideResult(result);
+
+    try {
+      const data = await postJSON("/summarize-notes", { notes });
+      showResult(result, data.summary || data.answer || "No summary returned.");
+      message.textContent = "✅ Notes summarized.";
+      message.className = "message success";
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "message error";
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
